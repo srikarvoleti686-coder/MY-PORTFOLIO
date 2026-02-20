@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>F1 Sim: Pro Spec</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Racing+Sans+One&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Roboto Mono', monospace; background-color: #0b0b0e; margin: 0; overflow: hidden; height: 100vh; display: flex; justify-content: center; align-items: center; color: white; touch-action: none; }
+        #login-wrapper, #game-over { position: absolute; z-index: 100; background: #15151e; width: 350px; padding: 30px; border-radius: 8px; border-top: 4px solid #E10600; box-shadow: 0 20px 50px #000; text-align: center; }
+        .hidden { display: none !important; }
+        #game-container { position: relative; background: #15151e; width: 100%; max-width: 450px; padding: 15px; border-radius: 10px; display: none; border: 1px solid #333; }
+        canvas { background: #1a1a1a; width: 100%; height: 500px; border-radius: 5px; cursor: crosshair; }
+        .hud-item { background: rgba(0,0,0,0.8); padding: 5px 10px; border-radius: 4px; border-left: 3px solid #E10600; }
+    </style>
+</head>
+<body>
+
+    <div id="login-wrapper">
+        <h2 style="font-family: 'Racing Sans One';" class="text-2xl italic mb-6 uppercase">Paddock Login</h2>
+        <input type="text" id="driverName" placeholder="DRIVER NAME" class="w-full p-2 mb-4 bg-gray-800 border border-gray-700 text-white outline-none">
+        <select id="teamSelect" class="w-full p-2 mb-6 bg-gray-800 border border-gray-700 text-white">
+            <option value="#3671C6">RED BULL</option>
+            <option value="#F91536">FERRARI</option>
+            <option value="#6CD3BF">MERCEDES</option>
+            <option value="#F58020">MCLAREN</option>
+            <option value="#004225">ASTON MARTIN</option>
+        </select>
+        <button id="startBtn" class="w-full bg-red-600 py-3 font-bold uppercase text-xs tracking-widest hover:bg-red-500">Initialize</button>
+    </div>
+
+    <div id="game-over" class="hidden">
+        <h2 style="font-family: 'Racing Sans One';" class="text-3xl italic mb-4 uppercase text-red-600">Retired</h2>
+        <p class="mb-2 text-gray-400">Total Points</p>
+        <div id="final-score" class="text-4xl font-bold mb-6">0</div>
+        <button onclick="location.reload()" class="w-full bg-white text-black py-3 font-bold uppercase text-xs tracking-widest hover:bg-gray-200">Rejoin Session</button>
+    </div>
+
+    <div id="game-container">
+        <div class="flex justify-between mb-4 gap-2">
+            <div class="hud-item flex-1">
+                <div class="text-[8px] text-gray-500 uppercase tracking-tighter">Velocity</div>
+                <div id="ui-speed" class="text-sm font-bold">0 KM/H</div>
+            </div>
+            <div class="hud-item flex-1 text-right">
+                <div class="text-[8px] text-gray-500 uppercase tracking-tighter">Points</div>
+                <div id="ui-score" class="text-sm font-bold text-yellow-400">0</div>
+            </div>
+        </div>
+        <canvas id="raceCanvas"></canvas>
+        <p class="text-[10px] text-gray-500 mt-2 text-center uppercase tracking-widest">A/D or Tap Sides to Steer</p>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('raceCanvas');
+        const ctx = canvas.getContext('2d');
+        const keys = {};
+
+        const state = {
+            active: false,
+            x: 50,
+            vel: 0,
+            score: 0,
+            opponents: [],
+            teamColor: "#E10600",
+            trackPos: 0,
+            frame: 0,
+            width: 0,
+            height: 500,
+            isSliding: false
+        };
+
+        const TRACK_LIMIT_L = 25;
+        const TRACK_LIMIT_R = 75;
+
+        function resize() {
+            state.width = canvas.offsetWidth;
+            canvas.width = state.width;
+            canvas.height = state.height;
+        }
+
+        document.getElementById('startBtn').onclick = () => {
+            state.teamColor = document.getElementById('teamSelect').value;
+            document.getElementById('login-wrapper').classList.add('hidden');
+            document.getElementById('game-container').style.display = 'block';
+            resize();
+            state.active = true;
+            loop();
+        };
+
+        // --- RENDERERS ---
+
+        function drawCar(x, y, color, isPlayer = false) {
+            ctx.save();
+            ctx.translate((x/100) * state.width, y);
+            
+            // Tires
+            ctx.fillStyle = "#111";
+            ctx.fillRect(-18, -10, 6, 14); ctx.fillRect(12, -10, 6, 14);
+            ctx.fillRect(-16, -38, 5, 12); ctx.fillRect(11, -38, 5, 12);
+
+            // Body
+            ctx.fillStyle = color;
+            ctx.fillRect(-7, -42, 14, 42);
+            
+            // Details
+            ctx.fillStyle = "#000";
+            ctx.fillRect(-3, -25, 6, 8);
+            ctx.fillStyle = isPlayer ? color : "#333";
+            ctx.fillRect(-20, -45, 40, 5); // Wing
+            
+            ctx.restore();
+        }
+
+        function drawDebris(x, y) {
+            ctx.save();
+            ctx.translate((x/100) * state.width, y);
+            ctx.fillStyle = "#fbbf24";
+            ctx.beginPath();
+            ctx.moveTo(-10, -5); ctx.lineTo(12, -8); ctx.lineTo(3, 12); ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+        }
+
+        function drawOil(x, y) {
+            ctx.save();
+            ctx.translate((x/100) * state.width, y);
+            ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 25, 15, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+
+        // --- CORE LOOP ---
+
+        function update() {
+            if (!state.active) return;
+
+            const difficulty = Math.floor(state.score / 1500);
+            const speed = 8 + (difficulty * 1.2);
+
+            // Physics Modification (Oil Slick Effect)
+            let friction = state.isSliding ? 0.99 : 0.84;
+            let currentSens = state.isSliding ? 0.15 : 0.85;
+
+            if (keys['KeyA'] || keys['ArrowLeft']) state.vel -= currentSens;
+            if (keys['KeyD'] || keys['ArrowRight']) state.vel += currentSens;
+            
+            state.vel *= friction; 
+            state.x += state.vel;
+
+            // Boundary Lock
+            if (state.x < TRACK_LIMIT_L) { state.x = TRACK_LIMIT_L; state.vel *= -0.5; }
+            if (state.x > TRACK_LIMIT_R) { state.x = TRACK_LIMIT_R; state.vel *= -0.5; }
+
+            state.trackPos += speed;
+            state.score++;
+
+            // SPAWNING SYSTEM
+            if (state.frame % Math.max(15, (50 - difficulty * 4)) === 0) {
+                const typeRand = Math.random();
+                const spawnX = 30 + Math.random() * 40;
+                
+                if (typeRand > 0.45) {
+                    state.opponents.push({ type: 'car', x: spawnX, y: -100, color: "#991b1b" });
+                } else if (typeRand > 0.15) {
+                    state.opponents.push({ type: 'debris', x: spawnX, y: -100 });
+                } else {
+                    state.opponents.push({ type: 'oil', x: spawnX, y: -100 });
+                }
+            }
+
+            state.isSliding = false;
+
+            state.opponents.forEach((o, i) => {
+                o.y += speed * 0.75; 
+                
+                const px = (state.x/100) * state.width;
+                const ox = (o.x/100) * state.width;
+                const py = state.height - 75;
+                const dy = Math.abs(o.y - py);
+                const dx = Math.abs(ox - px);
+
+                if (dx < 25 && dy < 40) {
+                    if (o.type === 'car') gameOver();
+                    if (o.type === 'debris') {
+                        state.score = Math.max(0, state.score - 100); 
+                        state.opponents.splice(i, 1);
+                    }
+                    if (o.type === 'oil') state.isSliding = true;
+                }
+            });
+
+            state.opponents = state.opponents.filter(o => o.y < 600);
+
+            document.getElementById('ui-speed').textContent = `${Math.floor(speed * 26)} KM/H`;
+            document.getElementById('ui-score').textContent = Math.floor(state.score / 10);
+            state.frame++;
+        }
+
+        function gameOver() {
+            state.active = false;
+            document.getElementById('final-score').textContent = Math.floor(state.score / 10);
+            document.getElementById('game-over').classList.remove('hidden');
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, state.width, state.height);
+            const w = state.width, h = state.height;
+
+            // Environment
+            ctx.fillStyle = "#166534"; ctx.fillRect(0,0,w,h);
+            ctx.fillStyle = "#1e1e1e"; ctx.fillRect(w*0.2, 0, w*0.6, h);
+
+            // Curbs
+            for(let i=-2; i<12; i++) {
+                let y = (i * 80 + (state.trackPos % 80));
+                ctx.fillStyle = i % 2 === 0 ? "#fff" : "#e10600";
+                ctx.fillRect(w*0.2 - 15, y, 15, 40);
+                ctx.fillRect(w*0.8, y, 15, 40);
+            }
+
+            // Draw Obstacles
+            state.opponents.forEach(o => {
+                if (o.type === 'car') drawCar(o.x, o.y, o.color);
+                else if (o.type === 'debris') drawDebris(o.x, o.y);
+                else if (o.type === 'oil') drawOil(o.x, o.y);
+            });
+
+            // Player
+            drawCar(state.x, h - 75, state.teamColor, true);
+            
+            // Visual feedback for sliding
+            if (state.isSliding) {
+                ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
+                ctx.lineWidth = 2;
+                ctx.strokeRect((state.x/100)*w - 20, h - 120, 40, 50);
+            }
+        }
+
+        window.onkeydown = e => keys[e.code] = true;
+        window.onkeyup = e => keys[e.code] = false;
+        
+        window.addEventListener('touchstart', e => {
+            const touchX = e.touches[0].clientX;
+            if(touchX < window.innerWidth / 2) keys['KeyA'] = true;
+            else keys['KeyD'] = true;
+        });
+        window.addEventListener('touchend', () => {
+            keys['KeyA'] = false;
+            keys['KeyD'] = false;
+        });
+
+        function loop() { 
+            update(); 
+            draw(); 
+            if(state.active) requestAnimationFrame(loop); 
+        }
+
+        window.addEventListener('resize', resize);
+    </script>
+</body>
+</html>

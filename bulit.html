@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>V.V. Srikar | Portfolio</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <header>
+    <nav>
+      <a href="#about"><button>About</button></a>
+      <a href="#projects"><button>Projects</button></a>
+      <a href="#skills"><button>Skills</button></a>
+      <a href="#contact"><button>Contact</button></a>
+    </nav>
+  </header>
+
+  <main>
+    <section id="about">
+      <h1>HI, WELCOME TO MY PORTFOLIO</h1>
+      <h2>V.V. SRIKAR | AMRITA CHENNAI</h2>
+      <p>This is a showcase of my projects, skills, and contact information. Feel free to explore and reach out!</p>
+      <img src="my.jpg" alt="V.V. Srikar">
+    </section>
+
+    <hr>
+
+    <section id="projects">
+      <h2>Featured Project</h2>
+      <h3>2D Car Racing Game</h3>
+      <p>
+        <em>Developed a 2D Car Racing Game using C and HTML.</em><br> 
+        Implemented collision detection algorithms, score tracking logic, and optimized frame rendering for smooth performance.
+      </p>
+      <p>You can <strong>click below</strong> to check out the game:</p>
+      <a href="jack.html" style="color: #ffca28; text-decoration: none; font-weight: bold;">View Car Racing Game →</a>
+    </section>
+
+    <hr>
+
+    <section id="skills">
+      <h2>My Skills</h2>
+      <ul>
+        <li><strong>C Programming:</strong> Proficient in Debugging & Logic</li>
+        <li><strong>Java:</strong> Basic (Loops, Arrays, Inheritance)</li>
+        <li><strong>Web Development:</strong> HTML5 & CSS basics</li>
+      </ul>
+    </section>
+
+    <hr>
+
+    <section id="contact">
+      <h2>Contact Me</h2>
+      <p>Feel free to reach out to me!</p>
+      <form>
+        <label for="name">Name:</label>
+        <input type="text" id="name" name="name" required>
+        
+        <label for="email">Email:</label>
+        <input type="email" id="email" name="email" required>
+
+        <b>Choose your gender:</b><br>
+        <input type="radio" id="male" name="gender" value="male">
+        <label for="male" style="display: inline;">Male</label>
+        <input type="radio" id="female" name="gender" value="female">
+        <label for="female" style="display: inline;">Female</label> 
+        <br><br>
+
+        <b>Select your interests:</b><br>
+        <input type="checkbox" id="coding" name="interest" value="coding">
+        <label for="coding" style="display: inline;">Coding</label><br>
+        <input type="checkbox" id="projects-check" name="interest" value="projects">
+        <label for="projects-check" style="display: inline;">Projects</label>
+        <br><br>
+
+        <label for="bio">Bio (up to 200 characters):</label>
+        <textarea id="bio" name="bio" maxlength="200" rows="4"></textarea>
+        
+        <button type="submit">Submit</button>
+      </form>
+    </section>
+  </main>
+
+</body>
+</html>
